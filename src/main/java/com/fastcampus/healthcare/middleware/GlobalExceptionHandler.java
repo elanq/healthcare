@@ -1,9 +1,15 @@
 package com.fastcampus.healthcare.middleware;
 
 import com.fastcampus.healthcare.common.exception.BadRequestException;
+import com.fastcampus.healthcare.common.exception.EmailAlreadyExistsException;
+import com.fastcampus.healthcare.common.exception.InvalidPasswordException;
 import com.fastcampus.healthcare.common.exception.ResourceNotFoundException;
+import com.fastcampus.healthcare.common.exception.RoleNotFoundException;
+import com.fastcampus.healthcare.common.exception.UserNotFoundException;
+import com.fastcampus.healthcare.common.exception.UsernameAlreadyExistsException;
 import com.fastcampus.healthcare.model.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Email;
 import java.time.LocalDateTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -16,10 +22,16 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 @Slf4j
 public class GlobalExceptionHandler {
 
-  @ExceptionHandler(ResourceNotFoundException.class)
+  @ExceptionHandler(
+      {
+          ResourceNotFoundException.class,
+          UserNotFoundException.class,
+          RoleNotFoundException.class
+      }
+  )
   @ResponseStatus(HttpStatus.NOT_FOUND)
   public @ResponseBody ErrorResponse handleResourceNotFoundException(
-      HttpServletRequest request, ResourceNotFoundException ex
+      HttpServletRequest request, RuntimeException ex
   ) {
     return ErrorResponse.builder()
         .code(HttpStatus.NOT_FOUND.value())
@@ -35,6 +47,19 @@ public class GlobalExceptionHandler {
   ) {
     return ErrorResponse.builder()
         .code(HttpStatus.BAD_REQUEST.value())
+        .message(ex.getMessage())
+        .timestamp(LocalDateTime.now())
+        .build();
+  }
+
+
+  @ExceptionHandler(InvalidPasswordException.class)
+  @ResponseStatus(HttpStatus.UNAUTHORIZED)
+  public @ResponseBody ErrorResponse handleUnauthorizedException(
+      HttpServletRequest request, Exception ex
+  ) {
+    return ErrorResponse.builder()
+        .code(HttpStatus.UNAUTHORIZED.value())
         .message(ex.getMessage())
         .timestamp(LocalDateTime.now())
         .build();
@@ -58,4 +83,19 @@ public class GlobalExceptionHandler {
         .build();
   }
 
+
+  @ExceptionHandler({
+      UsernameAlreadyExistsException.class,
+      EmailAlreadyExistsException.class
+  })
+  @ResponseStatus(HttpStatus.UNAUTHORIZED)
+  public @ResponseBody ErrorResponse handleConflictException(
+      HttpServletRequest request, Exception ex
+  ) {
+    return ErrorResponse.builder()
+        .code(HttpStatus.UNAUTHORIZED.value())
+        .message(ex.getMessage())
+        .timestamp(LocalDateTime.now())
+        .build();
+  }
 }
