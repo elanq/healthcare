@@ -2,17 +2,24 @@ package com.fastcampus.healthcare.middleware;
 
 import com.fastcampus.healthcare.common.exception.BadRequestException;
 import com.fastcampus.healthcare.common.exception.EmailAlreadyExistsException;
+import com.fastcampus.healthcare.common.exception.ForbiddenAccessException;
 import com.fastcampus.healthcare.common.exception.InvalidPasswordException;
 import com.fastcampus.healthcare.common.exception.ResourceNotFoundException;
 import com.fastcampus.healthcare.common.exception.RoleNotFoundException;
 import com.fastcampus.healthcare.common.exception.UserNotFoundException;
 import com.fastcampus.healthcare.common.exception.UsernameAlreadyExistsException;
 import com.fastcampus.healthcare.model.ErrorResponse;
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.Email;
+import java.security.SignatureException;
 import java.time.LocalDateTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -52,6 +59,17 @@ public class GlobalExceptionHandler {
         .build();
   }
 
+  @ExceptionHandler(ForbiddenAccessException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public @ResponseBody ErrorResponse handleForbiddenException(
+      HttpServletRequest request, BadRequestException ex
+  ) {
+    return ErrorResponse.builder()
+        .code(HttpStatus.FORBIDDEN.value())
+        .message(ex.getMessage())
+        .timestamp(LocalDateTime.now())
+        .build();
+  }
 
   @ExceptionHandler(InvalidPasswordException.class)
   @ResponseStatus(HttpStatus.UNAUTHORIZED)
@@ -68,8 +86,22 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(Exception.class)
   @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
   public @ResponseBody ErrorResponse handleGenericException(
-      HttpServletRequest request, Exception ex
+      HttpServletRequest request, HttpServletResponse response, Exception ex
   ) {
+
+    if (ex instanceof AccessDeniedException
+        ||  ex  instanceof SignatureException
+        || ex instanceof ExpiredJwtException
+        || ex instanceof AuthenticationException
+        || ex instanceof InsufficientAuthenticationException) {
+      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+      return ErrorResponse.builder()
+          .code(HttpStatus.FORBIDDEN.value())
+          .message(ex.getMessage())
+          .timestamp(LocalDateTime.now())
+          .build();
+    }
+
     log.error("Telah terjadi error pada endpoint {}. status code: {}. error_message: {} ",
         request.getRequestURI(),
         HttpStatus.INTERNAL_SERVER_ERROR,

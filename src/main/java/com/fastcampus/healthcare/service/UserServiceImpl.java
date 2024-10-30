@@ -3,14 +3,17 @@ package com.fastcampus.healthcare.service;
 import com.fastcampus.healthcare.common.constant.RoleType;
 import com.fastcampus.healthcare.common.exception.BadRequestException;
 import com.fastcampus.healthcare.common.exception.EmailAlreadyExistsException;
+import com.fastcampus.healthcare.common.exception.InvalidPasswordException;
 import com.fastcampus.healthcare.common.exception.RoleNotFoundException;
 import com.fastcampus.healthcare.common.exception.UserNotFoundException;
+import com.fastcampus.healthcare.common.exception.UsernameAlreadyExistsException;
 import com.fastcampus.healthcare.entity.Role;
 import com.fastcampus.healthcare.entity.User;
 import com.fastcampus.healthcare.entity.UserRole;
 import com.fastcampus.healthcare.entity.UserRole.UserRoleId;
 import com.fastcampus.healthcare.model.UserRegisterRequest;
 import com.fastcampus.healthcare.model.UserResponse;
+import com.fastcampus.healthcare.model.UserUpdateRequest;
 import com.fastcampus.healthcare.repository.RoleRepository;
 import com.fastcampus.healthcare.repository.UserRepository;
 import com.fastcampus.healthcare.repository.UserRoleRepository;
@@ -25,11 +28,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
-
+  private final String USER_CACHE_KEY = "cache:user:";
+  private final String USER_ROLES_CACHE_KEY = "cache:user:roles:";
   private final UserRepository userRepository;
   private final RoleRepository roleRepository;
   private final UserRoleRepository userRoleRepository;
   private final PasswordEncoder passwordEncoder;
+  private final CacheService cacheService;
 
   @Override
   @Transactional
@@ -42,7 +47,7 @@ public class UserServiceImpl implements UserService {
       throw new EmailAlreadyExistsException("Username "+userRegisterRequest.getUsername()+" is already taken");
     }
 
-    if (userRegisterRequest.getPassword().equals(userRegisterRequest.getPasswordConfirmation())) {
+    if (!userRegisterRequest.getPassword().equals(userRegisterRequest.getPasswordConfirmation())) {
       throw new BadRequestException("Password is not matched");
     }
 
@@ -91,5 +96,47 @@ public class UserServiceImpl implements UserService {
   @Override
   public boolean existsByEmail(String email) {
     return userRepository.existsByEmail(email);
+  }
+
+  @Override
+  @Transactional
+  public UserResponse updateUser(Long id, UserUpdateRequest userUpdateRequest) {
+    User user = userRepository.findById(id)
+        .orElseThrow(() -> new UserNotFoundException("User with id " + id + " is not found"));
+
+    if (userUpdateRequest.getCurrentPassword() != null &&
+        userUpdateRequest.getNewPassword() != null) {
+      if (!passwordEncoder.matches(userUpdateRequest.getCurrentPassword(), user.getPassword())) {
+        throw new InvalidPasswordException("Current password is incorrect");
+      }
+
+      user.setPassword(passwordEncoder.encode(userUpdateRequest.getNewPassword()));
+    }
+
+    if (userUpdateRequest.getEmail() != null && !userUpdateRequest.getEmail().equals(user.getEmail())) {
+      if (existsByEmail(userUpdateRequest.getEmail())) {
+        throw new EmailAlreadyExistsException("Email is already in use");
+      }
+      user.setEmail(userUpdateRequest.getEmail());
+    }
+
+    if (userUpdateRequest.getUsername() != null && !userUpdateRequest.getUsername().equals(user.getUsername())) {
+      if (existsByUsername(userUpdateRequest.getUsername())) {
+        throw new UsernameAlreadyExistsException("Username is already in use");
+      }
+      user.setUsername(userUpdateRequest.getUsername());
+    }
+
+
+    userRepository.save(user);
+    List<Role> roles = roleRepository.findByUserId(id);
+
+    String userCacheKey = USER_CACHE_KEY + user.getUsername();
+    String rolesCacheKey = USER_ROLES_CACHE_KEY + user.getUsername();
+
+    cacheService.evict(userCacheKey);
+    cacheService.evict(rolesCacheKey);
+
+    return UserResponse.fromUserAndRoles(user, roles);
   }
 }

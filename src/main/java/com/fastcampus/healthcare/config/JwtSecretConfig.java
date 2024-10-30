@@ -19,6 +19,6 @@ public class JwtSecretConfig {
 
   @Bean
   public SecretKey signKey() {
-    return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8);
+    return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
   }
 }
