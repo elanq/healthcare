@@ -4,6 +4,7 @@ import com.fastcampus.healthcare.common.constant.RoleType;
 import com.fastcampus.healthcare.common.exception.BadRequestException;
 import com.fastcampus.healthcare.common.exception.EmailAlreadyExistsException;
 import com.fastcampus.healthcare.common.exception.InvalidPasswordException;
+import com.fastcampus.healthcare.common.exception.ResourceNotFoundException;
 import com.fastcampus.healthcare.common.exception.RoleNotFoundException;
 import com.fastcampus.healthcare.common.exception.UserNotFoundException;
 import com.fastcampus.healthcare.common.exception.UsernameAlreadyExistsException;
@@ -18,6 +19,7 @@ import com.fastcampus.healthcare.repository.RoleRepository;
 import com.fastcampus.healthcare.repository.UserRepository;
 import com.fastcampus.healthcare.repository.UserRoleRepository;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -138,5 +140,33 @@ public class UserServiceImpl implements UserService {
     cacheService.evict(rolesCacheKey);
 
     return UserResponse.fromUserAndRoles(user, roles);
+  }
+
+  @Transactional
+  @Override
+  public UserResponse grantUserRole(Long userId, RoleType roleType) {
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new UserNotFoundException("User with id "+userId + " is not found"));
+
+    Role role = roleRepository.findByName(roleType)
+        .orElseThrow(() -> new RoleNotFoundException("Role with name "+roleType + " is not found"));
+
+    Optional<UserRole> existingRole = userRoleRepository.existsByUserIdAndRoleId(userId, role.getRoleId());
+    if (existingRole.isPresent()) {
+      throw new IllegalStateException("User " + userId + " already has role " + roleType);
+    }
+
+    UserRoleId userRoleId = new UserRoleId();
+    userRoleId.setRoleId(role.getRoleId());
+    userRoleId.setUserId(user.getUserId());
+
+    UserRole userRole = UserRole.builder()
+        .id(userRoleId)
+        .build();
+
+    userRoleRepository.save(userRole);
+
+    List<Role> userRoles = roleRepository.findByUserId(userId);
+    return UserResponse.fromUserAndRoles(user, userRoles);
   }
 }

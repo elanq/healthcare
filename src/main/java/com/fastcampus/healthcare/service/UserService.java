@@ -1,5 +1,6 @@
 package com.fastcampus.healthcare.service;
 
+import com.fastcampus.healthcare.common.constant.RoleType;
 import com.fastcampus.healthcare.model.UserRegisterRequest;
 import com.fastcampus.healthcare.model.UserResponse;
 import com.fastcampus.healthcare.model.UserUpdateRequest;
@@ -11,4 +12,5 @@ public interface UserService {
   boolean existsByUsername(String username);
   boolean existsByEmail(String email);
   UserResponse updateUser(Long id, UserUpdateRequest userUpdateRequest);
+  UserResponse grantUserRole(Long userId, RoleType roleType);
 }

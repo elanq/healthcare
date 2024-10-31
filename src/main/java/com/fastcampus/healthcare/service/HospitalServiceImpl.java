@@ -20,11 +20,12 @@ public class HospitalServiceImpl implements
   private final HospitalRepository hospitalRepository;
   private final CacheService cacheService;
 
-  private static String HOSPITAL_CACHE_KEY = "cache:key:hospital:";
+  private static final String HOSPITAL_CACHE_KEY = "cache:key:hospital:";
 
   @Override
   public Page<HospitalResponse> search(String keyword, Pageable pageable) {
-    return null;
+    return hospitalRepository.findByNameContainingIgnoreCase(keyword, pageable)
+        .map(this::convertToResponse);
   }
 
   @Override
@@ -42,7 +43,10 @@ public class HospitalServiceImpl implements
         .orElseThrow(() -> new ResourceNotFoundException("Hospital with id " + id + " is not found"));
     updateHospitalFromRequest(hospital, hospitalRequest);
 
+    String key = HOSPITAL_CACHE_KEY + id;
+
     hospitalRepository.save(hospital);
+    cacheService.evict(key);
     return convertToResponse(hospital);
   }
 
@@ -60,6 +64,8 @@ public class HospitalServiceImpl implements
     Hospital hospital = hospitalRepository.findById(id)
         .orElseThrow(() -> new ResourceNotFoundException("Hospital with id " + id + " is not found"));
     hospitalRepository.delete(hospital);
+    String key = HOSPITAL_CACHE_KEY + id;
+    cacheService.evict(key);
   }
 
   private HospitalResponse convertToResponse(Hospital hospital) {
