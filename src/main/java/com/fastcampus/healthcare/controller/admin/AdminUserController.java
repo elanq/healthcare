@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @SecurityRequirement(name = "Bearer")
 @PreAuthorize("hasRole('SUPER_ADMIN')")
-public class UserController {
+public class AdminUserController {
   private final UserService userService;
 
   @PostMapping("/grant")

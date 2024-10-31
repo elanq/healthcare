@@ -48,7 +48,7 @@ public class HospitalController {
     return ResponseEntity.ok(hospitalResponses);
   }
 
-  @PutMapping("/{id}")
+  @GetMapping("/{id}")
   public ResponseEntity<HospitalResponse> get(@PathVariable Long id
   ) {
     HospitalResponse response = hospitalService.get(id);
