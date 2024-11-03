@@ -21,6 +21,7 @@ import com.fastcampus.healthcare.repository.HospitalRepository;
 import com.fastcampus.healthcare.repository.RoleRepository;
 import com.fastcampus.healthcare.repository.SpecializationRepository;
 import com.fastcampus.healthcare.repository.UserRepository;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -92,6 +93,7 @@ public class DoctorServiceImpl implements DoctorService {
       hospitalDoctorFee.setHospitalId(hospital.getId());
       hospitalDoctorFee.setDoctorSpecializationId(doctorSpecialization.getId());
       hospitalDoctorFee.setFee(specRequest.getBaseFee()); // Initially set to base fee, can be updated later
+      hospitalDoctorFee.setConsultationType(specRequest.getConsultationType());
       hospitalDoctorFee = hospitalDoctorFeeRepository.save(hospitalDoctorFee);
 
       specializationInfos.add(
@@ -100,6 +102,7 @@ public class DoctorServiceImpl implements DoctorService {
               .specializationName(specialization.getName())
               .baseFee(doctorSpecialization.getBaseFee())
               .hospitalFee(hospitalDoctorFee.getFee())
+              .consultationType(hospitalDoctorFee.getConsultationType())
               .build()
           );
     }
@@ -143,6 +146,37 @@ public class DoctorServiceImpl implements DoctorService {
     });
   }
 
+  @Override
+  @Transactional
+  public DoctorResponse addDoctorSpecialization(Long doctorId, Long specializationId,
+      BigDecimal fee, String consultationType) {
+
+    Doctor doctor = doctorRepository.findById(doctorId)
+        .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
+
+    specializationRepository.findById(specializationId)
+        .orElseThrow(() -> new ResourceNotFoundException(
+            "Specialization not found with id: " + specializationId));
+
+    DoctorSpecialization doctorSpecialization = new DoctorSpecialization();
+    doctorSpecialization.setDoctorId(doctorId);
+    doctorSpecialization.setSpecializationId(specializationId);
+    doctorSpecialization.setBaseFee(fee);
+    doctorSpecialization = doctorSpecializationRepository.save(doctorSpecialization);
+
+    HospitalDoctorFee hospitalDoctorFee = new HospitalDoctorFee();
+    hospitalDoctorFee.setHospitalId(doctor.getHospitalId());
+    hospitalDoctorFee.setDoctorSpecializationId(doctorSpecialization.getId());
+    hospitalDoctorFee.setFee(fee);
+    hospitalDoctorFee.setConsultationType(consultationType);
+    hospitalDoctorFeeRepository.save(hospitalDoctorFee);
+
+    String cacheKey = DOCTOR_CACHE_KEY + doctor.getId();
+    cacheService.evict(cacheKey);
+
+    return convertToDoctorResponse(doctor);
+  }
+
   private DoctorResponse convertToDoctorResponse(Doctor doctor) {
     User user = userRepository.findById(doctor.getUserId())
         .orElseThrow(() -> new ResourceNotFoundException("User not found for doctor with id: " + doctor.getId()));
@@ -163,11 +197,12 @@ public class DoctorServiceImpl implements DoctorService {
               .findByHospitalIdAndDoctorSpecializationId(doctor.getHospitalId(), spec.getId())
               .orElse(new HospitalDoctorFee());
 
-          return  SpecializationInfo.builder()
+          return SpecializationInfo.builder()
               .specializationId(spec.getId())
               .specializationName(specializationName)
               .baseFee(spec.getBaseFee())
               .hospitalFee(fee.getFee())
+              .consultationType(fee.getConsultationType())
               .build();
         })
         .collect(Collectors.toList());
