@@ -1,19 +1,24 @@
 package com.fastcampus.healthcare.service;
 
 import com.fastcampus.healthcare.common.constant.RoleType;
+import com.fastcampus.healthcare.common.exception.ForbiddenAccessException;
 import com.fastcampus.healthcare.common.exception.ResourceNotFoundException;
 import com.fastcampus.healthcare.common.exception.UserNotFoundException;
 import com.fastcampus.healthcare.entity.Doctor;
+import com.fastcampus.healthcare.entity.DoctorAvailability;
 import com.fastcampus.healthcare.entity.DoctorSpecialization;
 import com.fastcampus.healthcare.entity.Hospital;
 import com.fastcampus.healthcare.entity.HospitalDoctorFee;
 import com.fastcampus.healthcare.entity.Role;
 import com.fastcampus.healthcare.entity.Specialization;
 import com.fastcampus.healthcare.entity.User;
+import com.fastcampus.healthcare.model.AvailabilityInfo;
+import com.fastcampus.healthcare.model.DoctorAvailabilityRequest;
 import com.fastcampus.healthcare.model.DoctorRegistrationRequest;
 import com.fastcampus.healthcare.model.DoctorResponse;
 import com.fastcampus.healthcare.model.DoctorSpecializationRequest;
 import com.fastcampus.healthcare.model.SpecializationInfo;
+import com.fastcampus.healthcare.repository.DoctorAvailabilityRepository;
 import com.fastcampus.healthcare.repository.DoctorRepository;
 import com.fastcampus.healthcare.repository.DoctorSpecializationRepository;
 import com.fastcampus.healthcare.repository.HospitalDoctorFeeRepository;
@@ -22,6 +27,8 @@ import com.fastcampus.healthcare.repository.RoleRepository;
 import com.fastcampus.healthcare.repository.SpecializationRepository;
 import com.fastcampus.healthcare.repository.UserRepository;
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -46,6 +53,7 @@ public class DoctorServiceImpl implements DoctorService {
   private final DoctorSpecializationRepository doctorSpecializationRepository;
   private final HospitalDoctorFeeRepository hospitalDoctorFeeRepository;
   private final CacheService cacheService;
+  private final DoctorAvailabilityRepository doctorAvailabilityRepository;
 
   public static final String DOCTOR_CACHE_KEY = "cache:key:doctor:";
 
@@ -125,7 +133,7 @@ public class DoctorServiceImpl implements DoctorService {
         .specializations(specializationInfos)
         .availabilities(new ArrayList<>()) // No availabilities yet for a new doctor
         .build();
-    cacheService.put(cacheKey,doctorResponse);
+    cacheService.put(cacheKey,doctorResponse, Duration.ofHours(1));
 
     return doctorResponse;
   }
@@ -142,8 +150,16 @@ public class DoctorServiceImpl implements DoctorService {
     return cacheService.get(cacheKey, DoctorResponse.class).orElseGet(() -> {
       Doctor doctor = doctorRepository.findById(doctorId)
           .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id "+doctorId));
-      return convertToDoctorResponse(doctor);
+      DoctorResponse doctorResponse = convertToDoctorResponse(doctor);
+      cacheService.put(cacheKey,doctorResponse, Duration.ofHours(1));
+      return doctorResponse;
     });
+  }
+
+  @Override
+  public Doctor getDoctorByUserId(Long userId) {
+    return doctorRepository.findByUserId(userId)
+        .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id "+userId));
   }
 
   @Override
@@ -172,6 +188,48 @@ public class DoctorServiceImpl implements DoctorService {
     hospitalDoctorFeeRepository.save(hospitalDoctorFee);
 
     String cacheKey = DOCTOR_CACHE_KEY + doctor.getId();
+    cacheService.evict(cacheKey);
+
+    return convertToDoctorResponse(doctor);
+  }
+
+  @Override
+  public void deleteDoctorAvailability(Long doctorId, Long availabilityId) {
+    DoctorAvailability availability =
+        doctorAvailabilityRepository.findById(availabilityId)
+        .orElseThrow(() -> new ResourceNotFoundException("Doctor availability not found with id: " + availabilityId));
+
+    DoctorResponse doctorResponse = getDoctorById(doctorId);
+    if (!availability.getDoctorId().equals(doctorResponse.getId())) {
+      throw new ForbiddenAccessException("Cannot update doctor availability");
+    }
+    doctorAvailabilityRepository.delete(availability);
+    String cacheKey = DOCTOR_CACHE_KEY + doctorId;
+    cacheService.evict(cacheKey);
+  }
+
+  @Override
+  public List<DoctorAvailability> getDoctorAvailabilitiesFromToday(Long doctorId) {
+    return doctorAvailabilityRepository.findAvailabilitiesByDoctorIdFromToday(doctorId);
+  }
+
+  @Override
+  @Transactional
+  public DoctorResponse updateDoctorAvailability(Long doctorId, DoctorAvailabilityRequest request) {
+    Doctor doctor = doctorRepository.findById(doctorId)
+        .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
+
+    DoctorAvailability availability = new DoctorAvailability();
+    availability.setDoctorId(doctorId);
+    availability.setDate(request.getDate());
+    availability.setStartTime(request.getStartTime());
+    availability.setEndTime(request.getEndTime());
+    availability.setConsultationType(request.getConsultationType());
+    availability.setAvailable(true);  // Assuming new availabilities are set to available by default
+
+    doctorAvailabilityRepository.save(availability);
+
+    String cacheKey = DOCTOR_CACHE_KEY + doctorId;
     cacheService.evict(cacheKey);
 
     return convertToDoctorResponse(doctor);
@@ -207,6 +265,22 @@ public class DoctorServiceImpl implements DoctorService {
         })
         .collect(Collectors.toList());
 
+    List<AvailabilityInfo> availabilities = getDoctorAvailabilitiesFromToday(doctor.getId())
+        .stream()
+        .map(doctorAvailability -> AvailabilityInfo.builder()
+            .isAvailable(true)
+            .startDateTime(LocalDateTime.of(
+                doctorAvailability.getDate(),
+                doctorAvailability.getStartTime()
+            ))
+            .endDateTime(LocalDateTime.of(
+                doctorAvailability.getDate(),
+                doctorAvailability.getEndTime()
+            ))
+            .consultationType(doctorAvailability.getConsultationType())
+            .build())
+        .toList();
+
     return DoctorResponse.builder()
         .id(doctor.getId())
         .userId(user.getUserId())
@@ -218,6 +292,7 @@ public class DoctorServiceImpl implements DoctorService {
         .createdAt(doctor.getCreatedAt())
         .updatedAt(doctor.getUpdatedAt())
         .specializations(specializationInfos)
+        .availabilities(availabilities)
         .build();
   }
 }

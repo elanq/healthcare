@@ -1,9 +1,12 @@
 package com.fastcampus.healthcare.controller.admin;
 
+import com.fastcampus.healthcare.common.exception.ForbiddenAccessException;
+import com.fastcampus.healthcare.model.DoctorAvailabilityRequest;
 import com.fastcampus.healthcare.model.DoctorRegistrationRequest;
 import com.fastcampus.healthcare.model.DoctorResponse;
 import com.fastcampus.healthcare.model.DoctorSpecializationRequest;
 import com.fastcampus.healthcare.model.GrantUserRoleRequest;
+import com.fastcampus.healthcare.model.UserInfo;
 import com.fastcampus.healthcare.model.UserResponse;
 import com.fastcampus.healthcare.service.DoctorService;
 import com.fastcampus.healthcare.service.UserService;
@@ -12,6 +15,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -44,4 +49,5 @@ public class AdminDoctorController {
     );
     return ResponseEntity.ok(response);
   }
+
 }
