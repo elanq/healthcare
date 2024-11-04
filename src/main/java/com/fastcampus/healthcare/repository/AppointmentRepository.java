@@ -4,6 +4,7 @@ import com.fastcampus.healthcare.entity.Appointment;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +12,9 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
+  @Query(value = "SELECT * FROM appointment WHERE id = :id FOR UPDATE", nativeQuery = true)
+  Optional<Appointment> findByIdAndLock(@Param("id") Long id);
+
   @Query(value = "SELECT * FROM appointment " +
       "WHERE doctor_id = :doctorId " +
       "AND appointment_date = :date " +

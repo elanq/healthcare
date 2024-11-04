@@ -2,6 +2,7 @@ package com.fastcampus.healthcare.service;
 
 import com.fastcampus.healthcare.common.constant.AppointmentStatus;
 import com.fastcampus.healthcare.common.exception.AppointmentConflictException;
+import com.fastcampus.healthcare.common.exception.ForbiddenAccessException;
 import com.fastcampus.healthcare.common.exception.ResourceNotFoundException;
 import com.fastcampus.healthcare.entity.Appointment;
 import com.fastcampus.healthcare.entity.Doctor;
@@ -10,6 +11,7 @@ import com.fastcampus.healthcare.entity.Hospital;
 import com.fastcampus.healthcare.entity.HospitalDoctorFee;
 import com.fastcampus.healthcare.entity.User;
 import com.fastcampus.healthcare.model.AppointmentRequest;
+import com.fastcampus.healthcare.model.AppointmentRescheduleRequest;
 import com.fastcampus.healthcare.model.AppointmentResponse;
 import com.fastcampus.healthcare.repository.AppointmentRepository;
 import com.fastcampus.healthcare.repository.DoctorAvailabilityRepository;
@@ -18,6 +20,7 @@ import com.fastcampus.healthcare.repository.DoctorSpecializationRepository;
 import com.fastcampus.healthcare.repository.HospitalDoctorFeeRepository;
 import com.fastcampus.healthcare.repository.HospitalRepository;
 import com.fastcampus.healthcare.repository.UserRepository;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -108,6 +111,113 @@ public class AppointmentServiceImpl implements
         .doctorName(doctor.getName())
         .hospitalId(hospital.getId())
         .hospitalName(hospital.getName())
+        .appointmentDate(appointment.getAppointmentDate())
+        .startTime(appointment.getStartTime())
+        .endTime(appointment.getEndTime())
+        .consultationType(appointment.getConsultationType())
+        .status(appointment.getStatus())
+        .build();
+  }
+
+  @Override
+  @Transactional
+  public AppointmentResponse rescheduleAppointment(Long userId, Long appointmentId,
+      AppointmentRescheduleRequest request) {
+
+    Appointment appointment = appointmentRepository.findByIdAndLock(appointmentId)
+        .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+
+    if (!appointment.getPatientId().equals(userId)) {
+      throw new ForbiddenAccessException("Can't reschedule other appointment");
+    }
+
+    if (appointment.getStatus() != AppointmentStatus.PENDING &&
+        appointment.getStatus() != AppointmentStatus.SCHEDULED) {
+      throw new IllegalStateException("Appointment cannot be rescheduled");
+    }
+
+    if (request.getAppointmentDate().isBefore(LocalDate.now())) {
+      throw new IllegalArgumentException("Cannot reschedule to a past date");
+    }
+
+    boolean isDoctorAvailable = doctorAvailabilityRepository.isDoctorAvailable(
+        appointment.getDoctorId(),
+        request.getAppointmentDate(),
+        request.getStartTime(),
+        request.getEndTime(),
+        appointment.getConsultationType()
+    );
+
+    if (!isDoctorAvailable) {
+      throw new AppointmentConflictException("The doctor is not available for the requested time slot");
+    }
+
+    List<Appointment> overlappingAppointments = appointmentRepository.findOverlappingAppointments(
+        appointment.getDoctorId(),
+        request.getAppointmentDate(),
+        request.getStartTime(),
+        request.getEndTime(),
+        appointment.getConsultationType()
+    );
+
+    if (!overlappingAppointments.isEmpty()) {
+      throw new AppointmentConflictException("The selected time slot conflicts with existing appointments");
+    }
+
+    appointment.setAppointmentDate(request.getAppointmentDate());
+    appointment.setStartTime(request.getStartTime());
+    appointment.setEndTime(request.getEndTime());
+
+    appointmentRepository.save(appointment);
+
+    return convertToAppointmentResponse(appointment);
+  }
+
+  @Override
+  public List<AppointmentResponse> listUserAppointments(Long userId) {
+    List<Appointment> appointments = appointmentRepository.findByPatientIdOrderByAppointmentDateDescStartTimeDesc(userId);
+    return appointments.stream()
+        .map(this::convertToAppointmentResponse)
+        .toList();
+  }
+
+  @Override
+  @Transactional
+  public void cancelAppointment(Long userId, Long appointmentId) {
+    Appointment appointment = appointmentRepository.findByIdAndLock(appointmentId)
+        .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+
+    if  (!appointment.getPatientId().equals(userId)) {
+      throw new ForbiddenAccessException("Can't reschedule other appointment");
+    }
+
+    if (appointment.getStatus() != AppointmentStatus.PENDING) {
+      throw new IllegalStateException("Only PENDING appointments can be cancelled");
+    }
+
+    appointment.setStatus(AppointmentStatus.CANCELLED);
+    appointmentRepository.save(appointment);
+  }
+
+  @Override
+  public AppointmentResponse findById(Long appointmentId) {
+    return appointmentRepository.findById(appointmentId)
+        .map(this::convertToAppointmentResponse)
+        .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));  }
+
+  @Override
+  public List<AppointmentResponse> listDoctorAppointments(Long doctorId) {
+    List<Appointment> appointments = appointmentRepository.findByDoctorIdAndAppointmentDateOrderByStartTimeAsc(doctorId);
+    return appointments.stream()
+        .map(this::convertToAppointmentResponse)
+        .toList();
+  }
+
+  private AppointmentResponse convertToAppointmentResponse(Appointment appointment) {
+    return AppointmentResponse.builder()
+        .id(appointment.getId())
+        .patientId(appointment.getPatientId())
+        .doctorId(appointment.getDoctorId())
         .appointmentDate(appointment.getAppointmentDate())
         .startTime(appointment.getStartTime())
         .endTime(appointment.getEndTime())

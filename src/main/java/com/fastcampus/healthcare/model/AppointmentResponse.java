@@ -1,6 +1,8 @@
 package com.fastcampus.healthcare.model;
 
 import com.fastcampus.healthcare.common.constant.AppointmentStatus;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import java.time.LocalDate;
@@ -15,6 +17,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonNaming(SnakeCaseStrategy.class)
+@JsonInclude(Include.NON_NULL)
 public class AppointmentResponse {
   private Long id;
   private Long patientId;
