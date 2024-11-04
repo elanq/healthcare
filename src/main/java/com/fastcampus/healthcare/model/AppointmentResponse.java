@@ -31,4 +31,5 @@ public class AppointmentResponse {
   private LocalTime endTime;
   private String consultationType;
   private AppointmentStatus status;
+  private PaymentResponse paymentDetail;
 }

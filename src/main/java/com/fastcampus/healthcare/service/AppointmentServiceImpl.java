@@ -13,6 +13,7 @@ import com.fastcampus.healthcare.entity.User;
 import com.fastcampus.healthcare.model.AppointmentRequest;
 import com.fastcampus.healthcare.model.AppointmentRescheduleRequest;
 import com.fastcampus.healthcare.model.AppointmentResponse;
+import com.fastcampus.healthcare.model.PaymentResponse;
 import com.fastcampus.healthcare.repository.AppointmentRepository;
 import com.fastcampus.healthcare.repository.DoctorAvailabilityRepository;
 import com.fastcampus.healthcare.repository.DoctorRepository;
@@ -39,6 +40,7 @@ public class AppointmentServiceImpl implements
   private final HospitalDoctorFeeRepository hospitalDoctorFeeRepository;
   private final DoctorAvailabilityRepository doctorAvailabilityRepository;
   private final AppointmentRepository appointmentRepository;
+  private final PaymentService paymentService;
   private final HospitalRepository hospitalRepository;
 
   @Override
@@ -102,6 +104,8 @@ public class AppointmentServiceImpl implements
     // Save the appointment
     appointmentRepository.save(appointment);
 
+    PaymentResponse paymentResponse = paymentService.createPayment(appointment);
+
 // Create and return AppointmentResponse
     return AppointmentResponse.builder()
         .id(appointment.getId())
@@ -116,6 +120,7 @@ public class AppointmentServiceImpl implements
         .endTime(appointment.getEndTime())
         .consultationType(appointment.getConsultationType())
         .status(appointment.getStatus())
+        .paymentDetail(paymentResponse)
         .build();
   }
 
@@ -203,17 +208,11 @@ public class AppointmentServiceImpl implements
   public AppointmentResponse findById(Long appointmentId) {
     return appointmentRepository.findById(appointmentId)
         .map(this::convertToAppointmentResponse)
-        .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));  }
-
-  @Override
-  public List<AppointmentResponse> listDoctorAppointments(Long doctorId) {
-    List<Appointment> appointments = appointmentRepository.findByDoctorIdAndAppointmentDateOrderByStartTimeAsc(doctorId);
-    return appointments.stream()
-        .map(this::convertToAppointmentResponse)
-        .toList();
+        .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
   }
 
   private AppointmentResponse convertToAppointmentResponse(Appointment appointment) {
+    PaymentResponse paymentResponse = paymentService.findByAppointmentId(appointment.getId());
     return AppointmentResponse.builder()
         .id(appointment.getId())
         .patientId(appointment.getPatientId())
@@ -223,6 +222,7 @@ public class AppointmentServiceImpl implements
         .endTime(appointment.getEndTime())
         .consultationType(appointment.getConsultationType())
         .status(appointment.getStatus())
+        .paymentDetail(paymentResponse)
         .build();
   }
 }

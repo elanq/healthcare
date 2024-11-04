@@ -12,5 +12,5 @@ public interface AppointmentService {
   List<AppointmentResponse> listUserAppointments(Long userId);
   void cancelAppointment(Long userId, Long appointmentId);
   AppointmentResponse findById(Long appointmentId);
-  List<AppointmentResponse> listDoctorAppointments(Long doctorId);
+//  List<AppointmentResponse> listDoctorAppointments(Long doctorId);
 }
