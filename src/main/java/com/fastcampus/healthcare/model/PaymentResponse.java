@@ -25,6 +25,9 @@ public class PaymentResponse {
   private PaymentStatus status;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
+  private String externalId;
+  private String externalStatus;
+  private String paymentUrl;
 
   public static PaymentResponse fromEntity(Payment payment) {
     return PaymentResponse.builder()
@@ -34,6 +37,8 @@ public class PaymentResponse {
         .paymentMethod(payment.getPaymentMethod())
         .transactionId(payment.getTransactionId())
         .status(payment.getStatus())
+        .externalStatus(payment.getXenditPaymentStatus())
+        .externalId(payment.getXenditInvoiceId())
         .createdAt(payment.getCreatedAt())
         .updatedAt(payment.getUpdatedAt())
         .build();

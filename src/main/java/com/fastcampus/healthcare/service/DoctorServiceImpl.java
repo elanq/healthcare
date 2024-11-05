@@ -268,6 +268,7 @@ public class DoctorServiceImpl implements DoctorService {
     List<AvailabilityInfo> availabilities = getDoctorAvailabilitiesFromToday(doctor.getId())
         .stream()
         .map(doctorAvailability -> AvailabilityInfo.builder()
+            .id(doctorAvailability.getId())
             .isAvailable(true)
             .startDateTime(LocalDateTime.of(
                 doctorAvailability.getDate(),

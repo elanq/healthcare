@@ -26,6 +26,7 @@ public class PaymentServiceImpl implements
 
   private final PaymentRepository paymentRepository;
   private final DoctorSpecializationRepository doctorSpecializationRepository;
+  private final XenditService xenditService;
 
   @Override
   @Transactional
@@ -51,7 +52,8 @@ public class PaymentServiceImpl implements
         .build();
 
     paymentRepository.save(payment);
-    return PaymentResponse.fromEntity(payment);
+
+    return xenditService.createPayment(payment);
   }
 
   @Override
