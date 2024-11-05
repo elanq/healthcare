@@ -2,6 +2,7 @@ package com.fastcampus.healthcare.service;
 
 import com.fastcampus.healthcare.common.constant.AppointmentStatus;
 import com.fastcampus.healthcare.common.constant.PaymentStatus;
+import com.fastcampus.healthcare.common.exception.ResourceNotFoundException;
 import com.fastcampus.healthcare.entity.Appointment;
 import com.fastcampus.healthcare.entity.DoctorSpecialization;
 import com.fastcampus.healthcare.entity.Payment;
@@ -58,6 +59,57 @@ public class PaymentServiceImpl implements
     return paymentRepository.findByAppointmentId(appointmentId)
         .map(PaymentResponse::fromEntity)
         .orElse(null);
+  }
+
+  @Override
+  public PaymentResponse cancelPayment(Long paymentId) {
+    Payment payment = paymentRepository.findByIdAndLock(paymentId)
+        .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
+
+    if (payment.getStatus() != PaymentStatus.PENDING) {
+      throw new IllegalStateException("Only pending payments can be cancelled");
+    }
+
+    payment.setStatus(PaymentStatus.CANCELLED);
+    Payment cancelledPayment = paymentRepository.save(payment);
+    return PaymentResponse.fromEntity(cancelledPayment);
+  }
+
+  @Override
+  @Transactional
+  public PaymentResponse recalculatePayment(Appointment updatedAppointment) {
+    Payment payment = paymentRepository.findByAppointmentIdAndLock(updatedAppointment.getId())
+        .orElseThrow(() -> new ResourceNotFoundException("Payment not found for the appointment"));
+
+    if (payment.getStatus() != PaymentStatus.PENDING) {
+      throw new IllegalStateException("Only pending payments can be cancelled");
+    }
+
+    DoctorSpecialization doctorSpecialization = doctorSpecializationRepository
+        .findById(updatedAppointment.getDoctorSpecializationId())
+        .orElseThrow(() -> new IllegalStateException("Doctor specialization not found"));
+
+    BigDecimal hourlyFee = doctorSpecialization.getBaseFee();
+    BigDecimal newAmount = calculateAmount(updatedAppointment, hourlyFee);
+
+    payment.setAmount(newAmount);
+    paymentRepository.save(payment);
+    return PaymentResponse.fromEntity(payment);
+  }
+
+  @Override
+  @Transactional
+  public PaymentResponse cancelPaymentForAppointment(Long appointmentId) {
+    Payment payment = paymentRepository.findByAppointmentIdAndLock(appointmentId)
+        .orElseThrow(() -> new ResourceNotFoundException("Payment not found for the appointment"));
+
+    if (payment.getStatus() != PaymentStatus.PENDING) {
+      throw new IllegalStateException("Only pending payments can be cancelled");
+    }
+
+    payment.setStatus(PaymentStatus.CANCELLED);
+    Payment cancelledPayment = paymentRepository.save(payment);
+    return PaymentResponse.fromEntity(cancelledPayment);
   }
 
   private BigDecimal calculateAmount(Appointment appointment, BigDecimal hourlyFee) {

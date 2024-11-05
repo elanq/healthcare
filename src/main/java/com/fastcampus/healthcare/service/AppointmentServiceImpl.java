@@ -175,6 +175,8 @@ public class AppointmentServiceImpl implements
 
     appointmentRepository.save(appointment);
 
+    paymentService.recalculatePayment(appointment);
+
     return convertToAppointmentResponse(appointment);
   }
 
@@ -202,6 +204,8 @@ public class AppointmentServiceImpl implements
 
     appointment.setStatus(AppointmentStatus.CANCELLED);
     appointmentRepository.save(appointment);
+
+    paymentService.cancelPaymentForAppointment(appointmentId);
   }
 
   @Override
