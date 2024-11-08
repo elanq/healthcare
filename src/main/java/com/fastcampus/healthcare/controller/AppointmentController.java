@@ -71,4 +71,17 @@ public class AppointmentController {
 
     return ResponseEntity.ok(appointmentResponses);
   }
+
+  @GetMapping("/{appointmentId}")
+  public ResponseEntity<AppointmentResponse> getAppointment(
+      @PathVariable Long appointmentId
+  ) {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    UserInfo userInfo = (UserInfo) authentication.getPrincipal();
+
+    AppointmentResponse  appointmentResponse = appointmentService.findById(appointmentId);
+
+    return ResponseEntity.ok(appointmentResponse);
+  }
+
 }

@@ -9,9 +9,12 @@ import com.fastcampus.healthcare.entity.Payment;
 import com.fastcampus.healthcare.model.PaymentResponse;
 import com.fastcampus.healthcare.repository.DoctorSpecializationRepository;
 import com.fastcampus.healthcare.repository.PaymentRepository;
+import com.xendit.exception.XenditException;
+import com.xendit.model.Invoice;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,7 +62,20 @@ public class PaymentServiceImpl implements
   @Override
   public PaymentResponse findByAppointmentId(Long appointmentId) {
     return paymentRepository.findByAppointmentId(appointmentId)
-        .map(PaymentResponse::fromEntity)
+        .map(payment -> {
+          if (payment.getStatus() == PaymentStatus.PENDING) {
+            try {
+              Invoice invoice = Invoice.getById(payment.getXenditInvoiceId());
+              PaymentResponse paymentResponse = PaymentResponse.fromEntity(payment);
+              paymentResponse.setPaymentUrl(invoice.getInvoiceUrl());
+              return paymentResponse;
+            } catch (XenditException e) {
+              throw new ResourceNotFoundException(
+                  "Invoice id not found for this id " + payment.getXenditInvoiceId());
+            }
+          }
+          return PaymentResponse.fromEntity(payment);
+        })
         .orElse(null);
   }
 

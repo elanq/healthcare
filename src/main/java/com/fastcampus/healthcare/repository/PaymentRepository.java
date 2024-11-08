@@ -16,6 +16,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
   Optional<Payment> findByAppointmentId(Long appointmentId);
 
+  Optional<Payment> findByXenditInvoiceId(String xenditInvoiceId);
+
   @Query(value = "SELECT * FROM payment WHERE id = :id FOR UPDATE", nativeQuery = true)
   Optional<Payment> findByIdAndLock(@Param("id") Long id);
 

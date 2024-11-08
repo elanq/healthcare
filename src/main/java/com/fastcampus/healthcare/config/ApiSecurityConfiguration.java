@@ -27,8 +27,11 @@ public class ApiSecurityConfiguration {
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
     return httpSecurity.csrf(AbstractHttpConfigurer::disable)
+        .cors(httpSecurityCorsConfigurer -> {
+          httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource());
+        })
         .authorizeHttpRequests(registry ->
-            registry.requestMatchers("/auth/**", "/api-docs/**", "/swagger-ui/**").permitAll()
+            registry.requestMatchers("/auth/**", "/api-docs/**", "/swagger-ui/**", "/webhook/xendit/**").permitAll()
                 .anyRequest().authenticated()
             )
         .sessionManagement(configurer ->
@@ -45,13 +48,13 @@ public class ApiSecurityConfiguration {
   }
 
   @Bean
-  public CorsConfigurationSource corsConfigurationSource() {
+  CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
 
-    configuration.setAllowedOrigins(List.of("http://localhost:8080"));
-    configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE"));
-    configuration.setAllowedHeaders(List.of("Authorization",  "Content-Type"));
-
+    configuration.setAllowedOrigins(List.of("http://localhost:8080", "http://localhost:3000"));
+    configuration.addAllowedMethod("*");
+    configuration.addAllowedHeader("*");
+    configuration.setAllowCredentials(true);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 
     source.registerCorsConfiguration("/**", configuration);
