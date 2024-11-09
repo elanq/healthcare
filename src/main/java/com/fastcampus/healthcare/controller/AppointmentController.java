@@ -1,5 +1,6 @@
 package com.fastcampus.healthcare.controller;
 
+import com.fastcampus.healthcare.model.AppointmentMeetingResponse;
 import com.fastcampus.healthcare.model.AppointmentRequest;
 import com.fastcampus.healthcare.model.AppointmentRescheduleRequest;
 import com.fastcampus.healthcare.model.AppointmentResponse;
@@ -82,6 +83,19 @@ public class AppointmentController {
     AppointmentResponse  appointmentResponse = appointmentService.findById(appointmentId);
 
     return ResponseEntity.ok(appointmentResponse);
+  }
+
+  @GetMapping("/{appointmentId}/meeting")
+  public ResponseEntity<AppointmentMeetingResponse> getAppointmentMeeting(
+      @PathVariable Long appointmentId
+  ) {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    UserInfo userInfo = (UserInfo) authentication.getPrincipal();
+
+    AppointmentMeetingResponse appointmentMeetingResponse = appointmentService.getMeetingStatus(
+        userInfo.getUserId(), appointmentId);
+
+    return ResponseEntity.ok(appointmentMeetingResponse);
   }
 
 }

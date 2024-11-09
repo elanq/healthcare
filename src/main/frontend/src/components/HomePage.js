@@ -74,6 +74,12 @@ const HomePage = () => {
           <div className="flex justify-between h-16 items-center">
             <div className="text-xl font-semibold">Healthcare System</div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigate("/appointments")}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                My Appointments
+              </button>
               <span className="text-gray-700">
                 Welcome, {userData.username}
               </span>

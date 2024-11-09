@@ -1,5 +1,6 @@
 package com.fastcampus.healthcare.service;
 
+import com.fastcampus.healthcare.model.AppointmentMeetingResponse;
 import com.fastcampus.healthcare.model.AppointmentRequest;
 import com.fastcampus.healthcare.model.AppointmentRescheduleRequest;
 import com.fastcampus.healthcare.model.AppointmentResponse;
@@ -13,4 +14,5 @@ public interface AppointmentService {
   void cancelAppointment(Long userId, Long appointmentId);
   AppointmentResponse findById(Long appointmentId);
 //  List<AppointmentResponse> listDoctorAppointments(Long doctorId);
+  AppointmentMeetingResponse getMeetingStatus(Long userId, Long appointmentId);
 }

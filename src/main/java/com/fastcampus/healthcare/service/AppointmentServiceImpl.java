@@ -1,6 +1,7 @@
 package com.fastcampus.healthcare.service;
 
 import com.fastcampus.healthcare.common.constant.AppointmentStatus;
+import com.fastcampus.healthcare.common.constant.RoleType;
 import com.fastcampus.healthcare.common.exception.AppointmentConflictException;
 import com.fastcampus.healthcare.common.exception.ForbiddenAccessException;
 import com.fastcampus.healthcare.common.exception.ResourceNotFoundException;
@@ -10,10 +11,13 @@ import com.fastcampus.healthcare.entity.DoctorSpecialization;
 import com.fastcampus.healthcare.entity.Hospital;
 import com.fastcampus.healthcare.entity.HospitalDoctorFee;
 import com.fastcampus.healthcare.entity.User;
+import com.fastcampus.healthcare.model.AppointmentMeetingResponse;
 import com.fastcampus.healthcare.model.AppointmentRequest;
 import com.fastcampus.healthcare.model.AppointmentRescheduleRequest;
 import com.fastcampus.healthcare.model.AppointmentResponse;
+import com.fastcampus.healthcare.model.DoctorResponse;
 import com.fastcampus.healthcare.model.PaymentResponse;
+import com.fastcampus.healthcare.model.UserResponse;
 import com.fastcampus.healthcare.repository.AppointmentRepository;
 import com.fastcampus.healthcare.repository.DoctorAvailabilityRepository;
 import com.fastcampus.healthcare.repository.DoctorRepository;
@@ -22,7 +26,9 @@ import com.fastcampus.healthcare.repository.HospitalDoctorFeeRepository;
 import com.fastcampus.healthcare.repository.HospitalRepository;
 import com.fastcampus.healthcare.repository.UserRepository;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,6 +48,8 @@ public class AppointmentServiceImpl implements
   private final AppointmentRepository appointmentRepository;
   private final PaymentService paymentService;
   private final HospitalRepository hospitalRepository;
+  private final UserService userService;
+  private final DoctorService doctorService;
 
   @Override
   @Transactional
@@ -215,6 +223,46 @@ public class AppointmentServiceImpl implements
         .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
   }
 
+  @Override
+  public AppointmentMeetingResponse getMeetingStatus(Long userId, Long appointmentId) {
+    UserResponse user = userService.getUserById(userId);
+    AppointmentResponse appointmentResponse = findById(appointmentId);
+
+    if (appointmentResponse.getStatus() != AppointmentStatus.SCHEDULED) {
+      throw new ForbiddenAccessException("Appointment is not scheduled yet or already expired");
+    }
+
+    if (user.getRoles().contains(RoleType.DOCTOR)) {
+      Doctor doctor =  doctorService.getDoctorByUserId(user.getUserId());
+      if (!Objects.equals(doctor.getId(), appointmentResponse.getDoctorId())) {
+        throw new ForbiddenAccessException("Doctor can't access this appointment");
+      }
+      return AppointmentMeetingResponse.builder()
+          .doctorId(doctor.getId())
+          .status(appointmentResponse.getStatus())
+          .build();
+    }
+
+    if (!Objects.equals(user.getUserId(), appointmentResponse.getPatientId())) {
+      throw new ForbiddenAccessException("User can't access this appointment");
+    }
+
+    LocalDate today = LocalDate.now();
+    if (!today.equals(appointmentResponse.getAppointmentDate())) {
+      throw new ForbiddenAccessException("Meeting is not yet started or has expired");
+    }
+
+    LocalTime now = LocalTime.now();
+    if (now.isBefore(appointmentResponse.getStartTime()) || now.isAfter(appointmentResponse.getEndTime())) {
+      throw new ForbiddenAccessException("Meeting is not yet started or has passed");
+    }
+
+    return AppointmentMeetingResponse.builder()
+        .doctorId(appointmentResponse.getDoctorId())
+        .patientId(appointmentResponse.getPatientId())
+        .status(appointmentResponse.getStatus())
+        .build();    }
+
   private AppointmentResponse convertToAppointmentResponse(Appointment appointment) {
     PaymentResponse paymentResponse = paymentService.findByAppointmentId(appointment.getId());
     return AppointmentResponse.builder()
@@ -227,6 +275,7 @@ public class AppointmentServiceImpl implements
         .consultationType(appointment.getConsultationType())
         .status(appointment.getStatus())
         .paymentDetail(paymentResponse)
+        .meetingId(appointment.getMeetingId())
         .build();
   }
 }

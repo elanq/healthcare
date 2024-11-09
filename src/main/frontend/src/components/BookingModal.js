@@ -4,11 +4,19 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import API_CONFIG from "../config/api.config";
 
-const BookingModal = ({ doctor, isOpen, onClose }) => {
+const BookingModal = ({
+  doctor,
+  isOpen,
+  onClose,
+  mode = 'booking', // 'booking' or 'reschedule'
+  appointmentId = null, // needed for reschedule
+  initialDate = null,
+  initialTime = null
+}) => {
   const navigate = useNavigate();
   const [selectedSpecialization, setSelectedSpecialization] = useState("");
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedTime, setSelectedTime] = useState("");
+  const [selectedDate, setSelectedDate] = useState(initialDate ? new Date(initialDate) : null);
+  const [selectedTime, setSelectedTime] = useState(initialTime || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,9 +34,16 @@ const BookingModal = ({ doctor, isOpen, onClose }) => {
   ];
 
   const handleBook = async () => {
-    if (!selectedSpecialization || !selectedDate || !selectedTime) {
-      setError("Please fill in all required fields");
-      return;
+    if (mode === "booking") {
+      if (!selectedSpecialization || !selectedDate || !selectedTime) {
+        setError("Please fill in all required fields");
+        return;
+      }
+    } else {
+      if (!selectedDate || !selectedTime) {
+        setError("Please fill in all required fields");
+        return;
+      }
     }
 
     setLoading(true);
@@ -43,26 +58,50 @@ const BookingModal = ({ doctor, isOpen, onClose }) => {
 
     const userData = JSON.parse(localStorage.getItem("userData"));
 
+    let response
+
     try {
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/v1/appointments/book`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            accept: "*/*",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify({
-            userId: userData.userId,
-            doctorId: doctor.id,
-            doctorSpecializationId: parseInt(selectedSpecialization),
-            appointmentDate: selectedDate.toLocaleDateString("en-CA"),
-            startTime: selectedTime,
-            endTime: endTimeString,
-          }),
-        }
-      );
+      if (mode === "reschedule") {
+        // Handle reschedule
+        response = await fetch(
+          `${API_CONFIG.BASE_URL}/api/v1/appointments/${appointmentId}/reschedule`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              accept: "*/*",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify({
+              appointmentDate: selectedDate.toLocaleDateString("en-CA"),
+              startTime: selectedTime,
+              endTime: endTimeString,
+            }),
+          }
+        );
+      } else {
+        // Handle new booking
+        const userData = JSON.parse(localStorage.getItem("userData"));
+        response = await fetch(
+          `${API_CONFIG.BASE_URL}/api/v1/appointments/book`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              accept: "*/*",
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify({
+              userId: userData.userId,
+              doctorId: doctor.id,
+              doctorSpecializationId: parseInt(selectedSpecialization),
+              appointmentDate: selectedDate.toLocaleDateString("en-CA"),
+              startTime: selectedTime,
+              endTime: endTimeString,
+            }),
+          }
+        );
+      }
 
       const data = await response.json();
 
@@ -71,9 +110,19 @@ const BookingModal = ({ doctor, isOpen, onClose }) => {
       }
 
       // Navigate to appointment detail page
-      navigate(`/appointments/${data.id}`, {
-        state: { appointmentData: data },
-      });
+      // Navigate to appointment detail page
+      navigate(
+        `/appointments/${mode === "reschedule" ? appointmentId : data.id}`,
+        {
+          state: {
+            message:
+              mode === "reschedule"
+                ? "Appointment rescheduled successfully"
+                : "Appointment booked successfully",
+            type: "success",
+          },
+        }
+      );
     } catch (err) {
     } finally {
       setLoading(false);
@@ -86,7 +135,11 @@ const BookingModal = ({ doctor, isOpen, onClose }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Book Appointment</h2>
+          <h2 className="text-xl font-semibold">
+            {mode === "reschedule"
+              ? "Reschedule Appointment"
+              : "Book Appointment"}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
@@ -97,26 +150,28 @@ const BookingModal = ({ doctor, isOpen, onClose }) => {
 
         <div className="space-y-4">
           {/* Specialization Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Select Specialization
-            </label>
-            <select
-              value={selectedSpecialization}
-              onChange={(e) => setSelectedSpecialization(e.target.value)}
-              className="w-full border border-gray-300 rounded-md p-2"
-            >
-              <option value="">Select a specialization</option>
-              {doctor.specializations.map((spec) => (
-                <option
-                  key={spec.specialization_id}
-                  value={spec.specialization_id}
-                >
-                  {spec.specialization_name} - {spec.consultation_type}
-                </option>
-              ))}
-            </select>
-          </div>
+          {mode === "booking" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Select Specialization
+              </label>
+              <select
+                value={selectedSpecialization}
+                onChange={(e) => setSelectedSpecialization(e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2"
+              >
+                <option value="">Select a specialization</option>
+                {doctor.specializations.map((spec) => (
+                  <option
+                    key={spec.specialization_id}
+                    value={spec.specialization_id}
+                  >
+                    {spec.specialization_name} - {spec.consultation_type}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Date Selection */}
           <div>
@@ -158,7 +213,11 @@ const BookingModal = ({ doctor, isOpen, onClose }) => {
             disabled={loading}
             className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
           >
-            {loading ? "Booking..." : "Confirm Booking"}
+            {loading
+              ? "Processing..."
+              : mode === "reschedule"
+              ? "Confirm Reschedule"
+              : "Confirm Booking"}
           </button>
         </div>
       </div>

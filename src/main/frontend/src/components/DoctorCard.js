@@ -60,11 +60,10 @@ const DoctorCard = ({ doctor }) => {
       <BookingModal
         doctor={doctor}
         isOpen={isModalOpen}
+        mode="booking"
         onClose={() => setIsModalOpen(false)}
       />
     </div>
-
-
   );
 };
 export default DoctorCard;

@@ -9,6 +9,7 @@ import LoginPage from "./components/LoginPage";
 import HomePage from "./components/HomePage";
 import RegisterPage from "./components/RegisterPage";
 import AppointmentDetail from "./components/AppointmentDetail";
+import AppointmentList from './components/AppointmentList';
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -38,6 +39,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AppointmentDetail />
+            </ProtectedRoute>
+          }
+        />
+         <Route
+          path="/appointments"
+          element={
+            <ProtectedRoute>
+              <AppointmentList />
             </ProtectedRoute>
           }
         />

@@ -16,6 +16,7 @@ import com.xendit.exception.XenditException;
 import com.xendit.model.Invoice;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class XenditServiceImpl implements XenditService {
   private final AppointmentRepository appointmentRepository;
   private final UserRepository userRepository;
   private final PaymentRepository paymentRepository;
+  private final MeetingService meetingService;
 
   @Override
   @Transactional
@@ -125,6 +127,10 @@ public class XenditServiceImpl implements XenditService {
             () -> new ResourceNotFoundException("Appointment not found for transaction ID: " + payment.getTransactionId()));
     appointment.setStatus(AppointmentStatus.SCHEDULED);
     appointmentRepository.save(appointment);
+
+    if (Objects.equals(appointment.getConsultationType(), "ONLINE"))  {
+      meetingService.createMeetingRoom(appointment);
+    }
   }
 
 }

@@ -5,8 +5,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies.SnakeCaseStrategy;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-import java.time.LocalDate;
-import java.time.LocalTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,19 +16,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @JsonNaming(SnakeCaseStrategy.class)
 @JsonInclude(Include.NON_NULL)
-public class AppointmentResponse {
-  private Long id;
+public class AppointmentMeetingResponse {
   private Long patientId;
-  private String patientName;
   private Long doctorId;
-  private String doctorName;
-  private Long hospitalId;
-  private String hospitalName;
-  private LocalDate appointmentDate;
-  private LocalTime startTime;
-  private LocalTime endTime;
-  private String consultationType;
   private AppointmentStatus status;
-  private PaymentResponse paymentDetail;
   private String meetingId;
 }
