@@ -6,6 +6,7 @@ import com.fastcampus.healthcare.model.DoctorAvailabilityRequest;
 import com.fastcampus.healthcare.model.DoctorResponse;
 import com.fastcampus.healthcare.model.UserInfo;
 import com.fastcampus.healthcare.service.DoctorService;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "Bearer")
 public class DoctorController {
   private final DoctorService doctorService;
+  private final MeterRegistry meterRegistry;
 
   @GetMapping
   public ResponseEntity<Page<DoctorResponse>> searchDoctors(
@@ -42,6 +44,9 @@ public class DoctorController {
 
     Sort.Direction direction = sortDir.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
     PageRequest pageRequest = PageRequest.of(page, size, Sort.by(direction, sortBy));
+
+    meterRegistry.counter("search.count")
+        .increment();
 
     Page<DoctorResponse> doctors = doctorService.getAllDoctors(keyword, pageRequest);
     return ResponseEntity.ok(doctors);

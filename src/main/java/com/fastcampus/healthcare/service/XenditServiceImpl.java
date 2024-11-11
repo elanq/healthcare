@@ -31,6 +31,7 @@ public class XenditServiceImpl implements XenditService {
   private final UserRepository userRepository;
   private final PaymentRepository paymentRepository;
   private final MeetingService meetingService;
+  private final EmailService emailService;
 
   @Override
   @Transactional
@@ -130,7 +131,9 @@ public class XenditServiceImpl implements XenditService {
 
     if (Objects.equals(appointment.getConsultationType(), "ONLINE"))  {
       meetingService.createMeetingRoom(appointment);
+      emailService.notifyMeetingCreated(appointment);
     }
+    emailService.notifySuccessfulPayment(appointment);
   }
 
 }

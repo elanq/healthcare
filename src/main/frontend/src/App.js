@@ -10,6 +10,7 @@ import HomePage from "./components/HomePage";
 import RegisterPage from "./components/RegisterPage";
 import AppointmentDetail from "./components/AppointmentDetail";
 import AppointmentList from './components/AppointmentList';
+import MeetingPage from "./components/MeetingPage";
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -51,6 +52,14 @@ function App() {
           }
         />
         <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route
+          path="/appointments/:appointmentId/meeting"
+          element={
+            <ProtectedRoute>
+              <MeetingPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </Router>
   );

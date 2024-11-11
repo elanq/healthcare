@@ -56,8 +56,6 @@ const BookingModal = ({
       .toString()
       .padStart(2, "0")}:00`;
 
-    const userData = JSON.parse(localStorage.getItem("userData"));
-
     let response
 
     try {
@@ -124,6 +122,7 @@ const BookingModal = ({
         }
       );
     } catch (err) {
+      setError(err.message)
     } finally {
       setLoading(false);
     }

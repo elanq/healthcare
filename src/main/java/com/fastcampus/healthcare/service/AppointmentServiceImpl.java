@@ -240,6 +240,7 @@ public class AppointmentServiceImpl implements
       return AppointmentMeetingResponse.builder()
           .doctorId(doctor.getId())
           .status(appointmentResponse.getStatus())
+          .meetingId(appointmentResponse.getMeetingId())
           .build();
     }
 
@@ -261,6 +262,7 @@ public class AppointmentServiceImpl implements
         .doctorId(appointmentResponse.getDoctorId())
         .patientId(appointmentResponse.getPatientId())
         .status(appointmentResponse.getStatus())
+        .meetingId(appointmentResponse.getMeetingId())
         .build();    }
 
   private AppointmentResponse convertToAppointmentResponse(Appointment appointment) {

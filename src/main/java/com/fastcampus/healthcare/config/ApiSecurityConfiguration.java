@@ -31,7 +31,7 @@ public class ApiSecurityConfiguration {
           httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource());
         })
         .authorizeHttpRequests(registry ->
-            registry.requestMatchers("/auth/**", "/api-docs/**", "/swagger-ui/**", "/webhook/xendit/**").permitAll()
+            registry.requestMatchers("/auth/**", "/api-docs/**", "/swagger-ui/**", "/webhook/xendit/**", "/actuator/**").permitAll()
                 .anyRequest().authenticated()
             )
         .sessionManagement(configurer ->
